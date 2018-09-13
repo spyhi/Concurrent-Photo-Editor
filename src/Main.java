@@ -1,8 +1,17 @@
 import javafx.application.Application;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
+import javafx.scene.control.Label;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 import javafx.scene.layout.StackPane;
+import javafx.scene.layout.VBox;
+import javafx.stage.FileChooser;
+import javafx.stage.FileChooser.ExtensionFilter;
 import javafx.stage.Stage;
+import java.io.File;
+import java.io.IOError;
+import java.net.MalformedURLException;
 
 public class Main extends Application {
 
@@ -18,12 +27,40 @@ public class Main extends Application {
     window = primaryStage;
     window.setTitle("ICS 499 - Concurrent Photo Editor");
 
-    button = new Button("Hello World");
+    button = new Button("Choose File");
+    ImageView iv = new ImageView();
+    Label fileLabel = new Label("File Name Here");
 
-    StackPane layout = new StackPane();
+    button.setOnAction(e -> {
+      Image image;
+      FileChooser fileChooser = new FileChooser();
+      fileChooser.setTitle("Open Image File");
+      fileChooser.getExtensionFilters().addAll(
+          new ExtensionFilter("Image Files", "*.png", "*.jpg", "*.gif"));
+      File selectedFile = fileChooser.showOpenDialog(window);
+
+      if (selectedFile != null) {
+        fileLabel.setText(selectedFile.getName());
+        try {
+          image = new Image(selectedFile.toURI().toURL().toString());
+          iv.setImage(image);
+          iv.setFitWidth(250);
+          iv.setPreserveRatio(true);
+        } catch (MalformedURLException x) {
+          System.out.println("To URL failed");
+        }
+      }
+    });
+
+
+    VBox layout = new VBox();
     layout.getChildren().add(button);
+    layout.getChildren().add(fileLabel);
+    layout.getChildren().add(iv);
     Scene scene = new Scene(layout, 300, 300);
     window.setScene(scene);
     window.show();
+
+
   }
 }
