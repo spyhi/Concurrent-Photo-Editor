@@ -9,9 +9,14 @@ import javafx.scene.layout.VBox;
 import javafx.stage.FileChooser;
 import javafx.stage.FileChooser.ExtensionFilter;
 import javafx.stage.Stage;
+
+import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOError;
 import java.net.MalformedURLException;
+import javafx.embed.swing.SwingFXUtils;
+
+import com.jhlabs.image.InvertFilter;
 
 public class Main extends Application {
 
@@ -27,12 +32,14 @@ public class Main extends Application {
     window = primaryStage;
     window.setTitle("ICS 499 - Concurrent Photo Editor");
 
+
     button = new Button("Choose File");
     ImageView iv = new ImageView();
     Label fileLabel = new Label("File Name Here");
 
     button.setOnAction(e -> {
       Image image;
+      InvertFilter filter = new InvertFilter();
       FileChooser fileChooser = new FileChooser();
       fileChooser.setTitle("Open Image File");
       fileChooser.getExtensionFilters().addAll(
@@ -43,6 +50,10 @@ public class Main extends Application {
         fileLabel.setText(selectedFile.getName());
         try {
           image = new Image(selectedFile.toURI().toURL().toString());
+          image = SwingFXUtils.toFXImage(
+              filter.filter(
+                  SwingFXUtils.fromFXImage(
+                      image, null), null), null);
           iv.setImage(image);
           iv.setFitWidth(250);
           iv.setPreserveRatio(true);
