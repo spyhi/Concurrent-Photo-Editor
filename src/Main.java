@@ -33,13 +33,7 @@ import javax.imageio.ImageIO;
 
 public class Main extends Application {
 
-  Stage window;
-  Button imageJobButton;
-  BufferedImageOp filter;
-  ComboBox<ImgMod> filterList = new ComboBox<>();
-  ListView imageList;
-  ImageView iv;
-  FileChooser fileChooser;
+
 
   public static void main(String[] args) {
     launch(args);
@@ -47,13 +41,27 @@ public class Main extends Application {
 
   @Override
   public void start(Stage primaryStage) {
+
+    Stage window;
+    Button chooseImageButton;
+    Button startJobButton;
+    List<Image> imageList = new ArrayList<>();
+    ListView<String> imagePaths = new ListView<>();
+    ComboBox<ImgMod> filterList = new ComboBox<>();
+    ImageView iv = new ImageView();
+
+    FileChooser fileChooser = new FileChooser();
+    fileChooser.setTitle("Open Image File");
+    fileChooser.getExtensionFilters().addAll(
+        new ExtensionFilter("Image Files", "*.jpg"));
+
     window = primaryStage;
     window.setTitle("ICS 499 - Concurrent Photo Editor");
 
-    // Set up imageJobButton
-    imageJobButton = new Button("Choose jpg files");
-    // On imageJobButton click, select files and start filter job
-    imageJobButton.setOnAction(e -> filterJob());
+    // Set up buttons
+    chooseImageButton = new Button("Choose jpg files");
+    startJobButton = new Button("Start New Job");
+    startJobButton.setDisable(true);
 
     // Combo box receives image filter objects that contain name and filter
     filterList.setItems(FXCollections.observableArrayList(
@@ -64,81 +72,89 @@ public class Main extends Application {
     ));
     //Chooses first filter as default.
     filterList.getSelectionModel().selectFirst();
-    filter = filterList.getValue().getFilter();
+    ImgMod currentFilter = filterList.getValue();
 
     // Switches filter automatically every time image is selected.
-    filterList.setOnAction(e -> setFilter(filterList.getValue().getFilter()));
+    var lambdaGuard = new Object(){ImgMod temp = currentFilter; };
+    filterList.setOnAction(e -> lambdaGuard.temp = filterList.getValue());
 
-    imageList = new ListView();
-    iv = new ImageView();
-    fileChooser = new FileChooser();
-    fileChooser.setTitle("Open Image File");
-    fileChooser.getExtensionFilters().addAll(
-        new ExtensionFilter("Image Files", "*.jpg"));
+    // On chooseImageButton click, select files
+    chooseImageButton.setOnAction(e -> {
+      List<File> selection = fileChooser.showOpenMultipleDialog(window);
+      setFiles(imagePaths, imageList, selection);
+      iv.setFitWidth(500);
+      iv.setPreserveRatio(true);
+      startJobButton.setDisable(false);
+    });
 
+    // Start job on selected files
+    startJobButton.setOnAction(e -> {
+      filterJob(currentFilter, imageList);
+      iv.setImage(imageList.get(imageList.size()-1));
+    });
 
+    imagePaths.setOnMouseClicked(e -> {
+      iv.setImage(imageList.get(imagePaths.getSelectionModel().getSelectedIndex()));
+    });
 
 
     VBox layout = new VBox();
     layout.getChildren().add(filterList);
-    layout.getChildren().add(imageJobButton);
-    layout.getChildren().add(imageList);
+    layout.getChildren().add(chooseImageButton);
+    layout.getChildren().add(startJobButton);
+    layout.getChildren().add(imagePaths);
     layout.getChildren().add(iv);
     Scene scene = new Scene(layout, 1000, 800);
     window.setScene(scene);
     window.show();
 
+  }
 
+  private void setFiles(ListView<String> imPaths, List<Image> images, List<File> selectedFiles) {
+
+    if (selectedFiles != null) {
+      images.clear();
+      imPaths.getItems().clear();
+
+      selectedFiles.forEach(file -> {
+        imPaths.getItems().add(file.toString());
+        try {
+          images.add(new Image(file.toURI().toURL().toString()));
+        } catch (MalformedURLException x) {
+          System.out.println("To URL failed");
+        }
+      });
+    }
 
   }
 
-  private void setFilter (BufferedImageOp newFilter) {
-    filter = newFilter;
-  }
+  private void filterJob(ImgMod filterContainer, List<Image> images) {
 
-  private void filterJob() {
-      imageJobButton.setDisable(true);
-      List<Image> images = new ArrayList<>();
-      imageList.getItems().clear();
-      List<File> selectedFiles = fileChooser.showOpenMultipleDialog(window);
+    List<Image> temp = new ArrayList<>();
 
-      if (selectedFiles != null) {
-        selectedFiles.forEach(file -> {
-          imageList.getItems().add(file.toString());
-          try {
-            images.add(new Image(file.toURI().toURL().toString()));
-          } catch (MalformedURLException x) {
-            System.out.println("To URL failed");
-          }
-        });
-
-        images.forEach(image -> { //SwingFXUtils.toFXImage(
-          String imgname = null;
-          BufferedImage img = filter.filter(SwingFXUtils.fromFXImage(image, null), null); // , null);
-          String fmt = "jpg";
-          try {
-            URL imgurl = new URL(image.getUrl());
-            imgname = imgurl.getPath();
-            File f = new File(imgname);
-            imgname = f.getName();
-          } catch (MalformedURLException urlex) {
-            System.out.println("URL to imgname conversion failed");
-          }
-          File imgFilepath = new File("./testimg/filtered/filtered_"+ imgname);
-          try {
-            ImageIO.write(img, fmt, imgFilepath);
-          } catch (IOException ioex) {
-            System.out.println("Image file write failed" + imgname);
-          }
-
-        });
-
-
-        iv.setImage(images.get(images.size()-1));
-        iv.setFitWidth(500);
-        iv.setPreserveRatio(true);
+    images.forEach(image -> {
+      String imgname = null;
+      BufferedImage img = filterContainer.getFilter().filter(SwingFXUtils.fromFXImage(image, null), null);
+      temp.add(SwingFXUtils.toFXImage(img, null));
+      String fmt = "jpg";
+      try {
+        URL imgurl = new URL(image.getUrl());
+        imgname = imgurl.getPath();
+        File f = new File(imgname);
+        imgname = f.getName();
+      } catch (MalformedURLException urlex) {
+        System.out.println("URL to imgname conversion failed");
       }
-    imageJobButton.setDisable(false);
+      File imgFilepath = new File("./testimg/filtered/" + filterContainer.toString()+ "_" + imgname);
+      try {
+        ImageIO.write(img, fmt, imgFilepath);
+      } catch (IOException ioex) {
+        System.out.println("Image file write failed" + imgname);
+      }
+    });
+
+    images.clear();
+    temp.forEach(i -> images.add(i));
   }
 
 
@@ -147,20 +163,16 @@ public class Main extends Application {
     private String name;
     private BufferedImageOp filter;
 
-    public String getName() {
-      return name;
-    }
-
     @Override
     public String toString() {
       return this.name;
     }
 
-    public BufferedImageOp getFilter() {
+    BufferedImageOp getFilter() {
       return filter;
     }
 
-    public ImgMod (String name, BufferedImageOp filter) {
+    ImgMod (String name, BufferedImageOp filter) {
       this.name = name;
       this.filter = filter;
     }
