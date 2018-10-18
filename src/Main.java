@@ -89,12 +89,13 @@ public class Main extends Application {
 
     // Start job on selected files
     startJobButton.setOnAction(e -> {
-      filterJob(currentFilter, imageList);
+      new filterJob(currentFilter, imageList);
       iv.setImage(imageList.get(imageList.size()-1));
     });
 
     imagePaths.setOnMouseClicked(e -> {
       iv.setImage(imageList.get(imagePaths.getSelectionModel().getSelectedIndex()));
+      resizeImageViewport(imageList.get(imagePaths.getSelectionModel().getSelectedIndex()), iv);
     });
 
 
@@ -104,7 +105,7 @@ public class Main extends Application {
     layout.getChildren().add(startJobButton);
     layout.getChildren().add(imagePaths);
     layout.getChildren().add(iv);
-    Scene scene = new Scene(layout, 1000, 800);
+    Scene scene = new Scene(layout, 500, 750);
     window.setScene(scene);
     window.show();
 
@@ -128,35 +129,62 @@ public class Main extends Application {
 
   }
 
-  private void filterJob(ImgMod filterContainer, List<Image> images) {
-
-    List<Image> temp = new ArrayList<>();
-
-    images.forEach(image -> {
-      String imgname = null;
-      BufferedImage img = filterContainer.getFilter().filter(SwingFXUtils.fromFXImage(image, null), null);
-      temp.add(SwingFXUtils.toFXImage(img, null));
-      String fmt = "jpg";
-      try {
-        URL imgurl = new URL(image.getUrl());
-        imgname = imgurl.getPath();
-        File f = new File(imgname);
-        imgname = f.getName();
-      } catch (MalformedURLException urlex) {
-        System.out.println("URL to imgname conversion failed");
-      }
-      File imgFilepath = new File("./testimg/filtered/" + filterContainer.toString()+ "_" + imgname);
-      try {
-        ImageIO.write(img, fmt, imgFilepath);
-      } catch (IOException ioex) {
-        System.out.println("Image file write failed" + imgname);
-      }
-    });
-
-    images.clear();
-    temp.forEach(i -> images.add(i));
+  private void resizeImageViewport (Image img, ImageView iv) {
+    if (img.getWidth() > img.getHeight()) {
+      iv.setFitWidth(500);
+    } else {
+      iv.setFitHeight(400);
+    }
   }
 
+  private class filterJob {
+    filterJob(ImgMod filterContainer, List<Image> images) {
+      Stage jobWindow = new Stage();
+      VBox jobLayout = new VBox();
+      Scene jobScene = new Scene(jobLayout, 500, 750);
+      jobWindow.setScene(jobScene);
+      jobWindow.setTitle(filterContainer.toString() + " Job");
+      ListView<String> outImagePaths = new ListView<>();
+      ImageView jobIV = new ImageView();
+      jobIV.setFitWidth(500);
+      jobIV.setPreserveRatio(true);
+
+      jobLayout.getChildren().add(outImagePaths);
+      jobLayout.getChildren().add(jobIV);
+      jobWindow.show();
+
+      List<Image> filteredImages = new ArrayList<>();
+
+      images.forEach(image -> {
+        String imgname = null;
+        BufferedImage img = filterContainer.getFilter().filter(SwingFXUtils.fromFXImage(image, null), null);
+        filteredImages.add(SwingFXUtils.toFXImage(img, null));
+        String fmt = "jpg";
+        try {
+          URL imgurl = new URL(image.getUrl());
+          imgname = imgurl.getPath();
+          File f = new File(imgname);
+          imgname = f.getName();
+        } catch (MalformedURLException urlex) {
+          System.out.println("URL to imgname conversion failed");
+        }
+        File imgFilepath = new File("./testimg/filtered/" + filterContainer.toString()+ "_" + imgname);
+        outImagePaths.getItems().add(imgFilepath.getPath());
+        try {
+          ImageIO.write(img, fmt, imgFilepath);
+        } catch (IOException ioex) {
+          System.out.println("Image file write failed" + imgname);
+        }
+      });
+
+      jobIV.setImage(filteredImages.get(images.size()-1));
+
+      outImagePaths.setOnMouseClicked(e -> {
+        jobIV.setImage(filteredImages.get(outImagePaths.getSelectionModel().getSelectedIndex()));
+        resizeImageViewport(filteredImages.get(outImagePaths.getSelectionModel().getSelectedIndex()), jobIV);
+      });
+    }
+  }
 
   // Nested class to create an object that can display a filter name and store a filter for the combo box.
   public class ImgMod {
