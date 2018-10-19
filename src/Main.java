@@ -72,11 +72,6 @@ public class Main extends Application {
     ));
     //Chooses first filter as default.
     filterList.getSelectionModel().selectFirst();
-    ImgMod currentFilter = filterList.getValue();
-
-    // Switches filter automatically every time image is selected.
-    var lambdaGuard = new Object(){ImgMod temp = currentFilter; };
-    filterList.setOnAction(e -> lambdaGuard.temp = filterList.getValue());
 
     // On chooseImageButton click, select files
     chooseImageButton.setOnAction(e -> {
@@ -89,7 +84,7 @@ public class Main extends Application {
 
     // Start job on selected files
     startJobButton.setOnAction(e -> {
-      new filterJob(currentFilter, imageList);
+      new filterJob(filterList.getValue(), imageList).process();
       iv.setImage(imageList.get(imageList.size()-1));
     });
 
@@ -138,14 +133,26 @@ public class Main extends Application {
   }
 
   private class filterJob {
-    filterJob(ImgMod filterContainer, List<Image> images) {
+
+    private ImgMod filterContainer;
+    private List<Image> images;
+    private List<Image> filteredImages;
+    private ListView<String> outImagePaths;
+    private ImageView jobIV;
+
+    filterJob(ImgMod fc, List<Image> imgs) {
+
+      this.filterContainer = fc;
+      this.images = imgs;
+      this.filteredImages = new ArrayList<>();
+      this.outImagePaths = new ListView<>();
+      this.jobIV = new ImageView();
+
       Stage jobWindow = new Stage();
       VBox jobLayout = new VBox();
       Scene jobScene = new Scene(jobLayout, 500, 750);
       jobWindow.setScene(jobScene);
       jobWindow.setTitle(filterContainer.toString() + " Job");
-      ListView<String> outImagePaths = new ListView<>();
-      ImageView jobIV = new ImageView();
       jobIV.setFitWidth(500);
       jobIV.setPreserveRatio(true);
 
@@ -153,8 +160,13 @@ public class Main extends Application {
       jobLayout.getChildren().add(jobIV);
       jobWindow.show();
 
-      List<Image> filteredImages = new ArrayList<>();
+      outImagePaths.setOnMouseClicked(e -> {
+        jobIV.setImage(filteredImages.get(outImagePaths.getSelectionModel().getSelectedIndex()));
+        resizeImageViewport(filteredImages.get(outImagePaths.getSelectionModel().getSelectedIndex()), jobIV);
+      });
+    }
 
+    protected void process () {
       images.forEach(image -> {
         String imgname = null;
         BufferedImage img = filterContainer.getFilter().filter(SwingFXUtils.fromFXImage(image, null), null);
@@ -176,13 +188,7 @@ public class Main extends Application {
           System.out.println("Image file write failed" + imgname);
         }
       });
-
       jobIV.setImage(filteredImages.get(images.size()-1));
-
-      outImagePaths.setOnMouseClicked(e -> {
-        jobIV.setImage(filteredImages.get(outImagePaths.getSelectionModel().getSelectedIndex()));
-        resizeImageViewport(filteredImages.get(outImagePaths.getSelectionModel().getSelectedIndex()), jobIV);
-      });
     }
   }
 
