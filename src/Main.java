@@ -76,6 +76,7 @@ public class Main extends Application {
         chooseImageButton.setOnAction(e -> {
 //      List<File> selection = fileChooser.showOpenMultipleDialog(window);
             setFiles(imagePaths, imageList, selection);
+          System.out.println(selection.size());
             iv.setFitWidth(500);
             iv.setPreserveRatio(true);
             startJobButton.setDisable(false);
@@ -84,7 +85,6 @@ public class Main extends Application {
         // Start job on selected files
         startJobButton.setOnAction(e -> {
             new filterJob(filterList.getValue(), selection).process();
-            iv.setImage(imageList.get(imageList.size()-1));
         });
 
         imagePaths.setOnMouseClicked(e -> {
@@ -113,6 +113,7 @@ public class Main extends Application {
                 new ExtensionFilter("Image Files", "*.jpg"));
 
         selectedFiles = fileChooser.showOpenMultipleDialog(window);
+        System.out.println(selectedFiles.size());
 
     }
 
@@ -155,7 +156,12 @@ public class Main extends Application {
 
             outImagePaths.setOnMouseClicked(e -> {
                 File file = new File(outImagePaths.getSelectionModel().getSelectedItem());
-                Image img = new Image(file.toURI().toURL().toString());
+                Image img = null;
+                try {
+                  img = new Image(file.toURI().toURL().toString());
+                } catch (MalformedURLException urlex) {
+                  System.out.println("URL to file conversion failed");
+                }
                 jobIV.setImage(img);
                 resizeImageViewport(img, jobIV);
             });
@@ -164,6 +170,8 @@ public class Main extends Application {
         protected void process () {
 
             files.forEach(file -> {
+
+              System.out.println(file.getPath());
 
                 // Load the image from file
                 Image image = null;
@@ -178,7 +186,7 @@ public class Main extends Application {
 
                 // Add path to the display
                 String fmt = "jpg";
-                String imgname;
+                String imgname = null;
                 try {
                     URL imgurl = new URL(image.getUrl());
                     imgname = imgurl.getPath();
