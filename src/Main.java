@@ -112,7 +112,8 @@ public class Main extends Application {
         fileChooser.getExtensionFilters().addAll(
                 new ExtensionFilter("Image Files", "*.jpg"));
 
-        selectedFiles = fileChooser.showOpenMultipleDialog(window);
+        List<File> tempFiles = fileChooser.showOpenMultipleDialog(window);
+        tempFiles.forEach(file -> selectedFiles.add(file));
         System.out.println(selectedFiles.size());
 
     }
