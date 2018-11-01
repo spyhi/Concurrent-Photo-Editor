@@ -1,4 +1,5 @@
 import javafx.application.Application;
+import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
@@ -46,10 +47,11 @@ public class Main extends Application {
 
         Button chooseImageButton;
         Button startJobButton;
-        List<Image> imageList = new ArrayList<>();
         ListView<String> imagePaths = new ListView<>();
         ComboBox<ImgMod> filterList = new ComboBox<>();
         ImageView iv = new ImageView();
+        iv.setFitWidth(500);
+        iv.setPreserveRatio(true);
 
 
         List<File> selection = new ArrayList<>();
@@ -74,22 +76,40 @@ public class Main extends Application {
 
         // On chooseImageButton click, select files
         chooseImageButton.setOnAction(e -> {
-//      List<File> selection = fileChooser.showOpenMultipleDialog(window);
-            setFiles(imagePaths, imageList, selection);
-          System.out.println(selection.size());
-            iv.setFitWidth(500);
-            iv.setPreserveRatio(true);
-            startJobButton.setDisable(false);
+          setFiles(imagePaths, selection);
+          Platform.runLater(() -> {
+            imagePaths.getSelectionModel().selectLast();
+          File file = new File(imagePaths.getSelectionModel().getSelectedItem());
+          Image img = null;
+          try {
+            img = new Image(file.toURI().toURL().toString());
+          } catch (MalformedURLException urlex) {
+            System.out.println("URL to file conversion failed");
+          }
+          resizeImageViewport(img, iv);
+          iv.setImage(img);
+          startJobButton.setDisable(false);
+          });
         });
 
         // Start job on selected files
         startJobButton.setOnAction(e -> {
-            new filterJob(filterList.getValue(), selection).process();
+            Thread jobThread = new Thread(new filterJob(filterList.getValue(), selection));
+            jobThread.start();
         });
 
         imagePaths.setOnMouseClicked(e -> {
-            iv.setImage(imageList.get(imagePaths.getSelectionModel().getSelectedIndex()));
-            resizeImageViewport(imageList.get(imagePaths.getSelectionModel().getSelectedIndex()), iv);
+            Platform.runLater(() -> {
+              File file = new File(imagePaths.getSelectionModel().getSelectedItem());
+              Image img = null;
+              try {
+                img = new Image(file.toURI().toURL().toString());
+              } catch (MalformedURLException urlex) {
+                System.out.println("URL to file conversion failed");
+              }
+              resizeImageViewport(img, iv);
+              iv.setImage(img);
+            });
         });
 
 
@@ -105,7 +125,7 @@ public class Main extends Application {
 
     }
 
-    private void setFiles(ListView<String> imPaths, List<Image> images, List<File> selectedFiles) {
+    private void setFiles(ListView<String> imPaths, List<File> selectedFiles) {
 
         FileChooser fileChooser = new FileChooser();
         fileChooser.setTitle("Open Image File");
@@ -113,8 +133,10 @@ public class Main extends Application {
                 new ExtensionFilter("Image Files", "*.jpg"));
 
         List<File> tempFiles = fileChooser.showOpenMultipleDialog(window);
-        tempFiles.forEach(file -> selectedFiles.add(file));
-        System.out.println(selectedFiles.size());
+        tempFiles.forEach(file -> {
+          selectedFiles.add(file);
+          Platform.runLater(() -> imPaths.getItems().add(file.getPath()));
+        });
 
     }
 
@@ -126,12 +148,10 @@ public class Main extends Application {
         }
     }
 
-    private class filterJob {
+    private class filterJob implements Runnable{
 
         private ImgMod filterContainer;
         private List<File> files;
-        //    private List<Image> unfilteredImages;
-//    private List<Image> filteredImages;
         private ListView<String> outImagePaths;
         private ImageView jobIV;
 
@@ -139,7 +159,6 @@ public class Main extends Application {
 
             this.filterContainer = fc;
             this.files = files;
-//      this.filteredImages = new ArrayList<>();
             this.outImagePaths = new ListView<>();
             this.jobIV = new ImageView();
 
@@ -168,11 +187,9 @@ public class Main extends Application {
             });
         }
 
-        protected void process () {
+        public void run () {
 
             files.forEach(file -> {
-
-              System.out.println(file.getPath());
 
                 // Load the image from file
                 Image image = null;
@@ -197,7 +214,7 @@ public class Main extends Application {
                     System.out.println("URL to imgname conversion failed");
                 }
                 File imgFilepath = new File("./testimg/filtered/" + filterContainer.toString()+ "_" + imgname);
-                outImagePaths.getItems().add(imgFilepath.getPath());
+                Platform.runLater(() -> outImagePaths.getItems().add(imgFilepath.getPath()));
 
 
                 // Write the image back to a file
@@ -207,7 +224,10 @@ public class Main extends Application {
                     System.out.println("Image file write failed" + imgname);
                 }
 
-                jobIV.setImage(SwingFXUtils.toFXImage(img, null));
+                Platform.runLater(() -> {
+                  resizeImageViewport(SwingFXUtils.toFXImage(img, null), jobIV);
+                  jobIV.setImage(SwingFXUtils.toFXImage(img, null));
+                });
 
             });
 
